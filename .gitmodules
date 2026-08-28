@@ -4,7 +4,7 @@
 	branch = master
 [submodule "opendbc"]
   path = opendbc_repo
-  url = https://github.com/mouxangithub/opendbc.git
+  url = https://github.com/caozhi1122/opendbc.git
 	branch = master-c3
 [submodule "msgq"]
   path = msgq_repo
