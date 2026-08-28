@@ -48,7 +48,10 @@ rm -f panda/board/obj/panda.bin.signed
 rm -f panda/board/obj/panda_h7.bin.signed
 
 # Release branch must not contain LFS pointers; strip LFS tracking and commit files as regular content.
-sed -i '/filter=lfs/d' .gitattributes
+# .gitattributes is blacklisted by release_files.py, so guard the strip in case it was not copied.
+if [ -f .gitattributes ]; then
+  sed -i '/filter=lfs/d' .gitattributes
+fi
 
 find openpilot/selfdrive/modeld/models -name '*.onnx' -size +95M -exec ./openpilot/common/file_chunker.py {} \;
 
