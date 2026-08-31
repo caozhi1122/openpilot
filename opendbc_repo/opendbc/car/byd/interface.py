@@ -33,8 +33,10 @@ class CarInterface(CarInterfaceBase):
       ret.safetyConfigs[0].safetyParam |= BydSafetyFlags.SONG_PLUS_DMI.value
       ret.enableBsm = 0x418 in fingerprint[CanBus.ESC]
       ret.transmissionType = TransmissionType.direct
-      # the SONG family has a working front radar (RADAR_MRR), unlike the ATTO3
-      ret.radarUnavailable = False
+      # the SONG family usually has a working front radar (RADAR_MRR on bus 2), but
+      # not every trim sends it. Detect from the fingerprint so radarless trims fall
+      # back to vision-only instead of faulting canValid (0x374 never arrives).
+      ret.radarUnavailable = 0x374 not in fingerprint.get(CanBus.MPC, {})
 
       ret.minSteerSpeed = 0.1 * CV.KPH_TO_MS
       ret.steerActuatorDelay = 0.05
@@ -45,16 +47,25 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.6, 0.3], [0.2, 0.1]]
       ret.lateralTuning.pid.kf = 0.000072
 
-      # Longitudinal tuning is vestigial here (openpilotLongitudinalControl is False);
-      # kpBP/kpV live in the deprecated group in this repo's car.capnp and are not set.
+      # Longitudinal control (ACC_CMD active control, ported from the opendbc-master /
+      # carrotpilot reference): openpilot drives AccelCmd on the ESC bus while faking
+      # ACC_EPS_STATE back to the camera so the stock MPC stays healthy (no DTC, AEB
+      # preserved). ACC_CMD is already on the panda TX allowlist (safety/modes/byd.h,
+      # SONG branch); alpha_long gates it via AlphaLongitudinalEnabled.
+      ret.alphaLongitudinalAvailable = True
+      ret.openpilotLongitudinalControl = alpha_long and ret.alphaLongitudinalAvailable
+      ret.pcmCruise = not ret.openpilotLongitudinalControl
+      ret.minEnableSpeed = -1
+
+      # kpBP/kpV and start/stop tuning (startingState, startAccel, vEgoStarting,
+      # vEgoStopping) live in the deprecated group in this repo's car.capnp and are
+      # not set.
       ret.longitudinalTuning.kiBP = [0.]
       ret.longitudinalTuning.kiV = [0.3]
 
-      # the reference marks every DMI platform dashcam-only until on-car verification
-      ret.dashcamOnly = True
-      ret.openpilotLongitudinalControl = False
-      ret.pcmCruise = True
-      ret.minEnableSpeed = -1
+      ret.autoResumeSng = True
+      ret.stopAccel = -0.5
+      ret.longitudinalActuatorDelay = 0.5
       return ret
 
     # BYD EPS receives absolute steering wheel angle targets in STEERING_MODULE_ADAS.

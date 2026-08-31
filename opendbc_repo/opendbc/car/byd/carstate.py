@@ -350,12 +350,13 @@ class CarState(CarStateBase):
     self.cam_acc = copy.copy(cp_cam.vl["ACC_CMD"])
     self.esc_eps = copy.copy(cp.vl["ACC_EPS_STATE"])
 
-    mrr_id = int(cp_cam.vl["RADAR_MRR"]["TargetID"])
-    if mrr_id == 2:  # 1:left, 2:front, 3:right
-      if bool(cp_cam.vl["RADAR_MRR"]["IsValid"]):
-        self.mrr_leading_dist = int(cp_cam.vl["RADAR_MRR"]["LongDist"])
-      else:
-        self.mrr_leading_dist = 199
+    if not self.CP.radarUnavailable:
+      mrr_id = int(cp_cam.vl["RADAR_MRR"]["TargetID"])
+      if mrr_id == 2:  # 1:left, 2:front, 3:right
+        if bool(cp_cam.vl["RADAR_MRR"]["IsValid"]):
+          self.mrr_leading_dist = int(cp_cam.vl["RADAR_MRR"]["LongDist"])
+        else:
+          self.mrr_leading_dist = 199
 
     ret.steerFaultPermanent = bool(cp.vl["ACC_EPS_STATE"]["TorqueFailed"])  # EPS gives up all inputs until restart
 
@@ -368,6 +369,7 @@ class CarState(CarStateBase):
 
     return ret, ret_sp
 
+  @staticmethod
   def get_can_parsers(CP, CP_SP):
     if CP.carFingerprint in PLATFORM_SONG_PLUS_DMI:
       # SONG PLUS DMI (opendbc-master reference): both parsers read byd_song.dbc, one
@@ -392,8 +394,9 @@ class CarState(CarStateBase):
         ("ACC_HUD_ADAS", 50),
         ("ACC_CMD", 50),
         ("ACC_MPC_STATE", 50),
-        ("RADAR_MRR", 60),
       ]
+      if not CP.radarUnavailable:
+        cam_messages.append(("RADAR_MRR", 60))
 
       return {
         Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], pt_messages, CanBus.ESC),
